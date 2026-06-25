@@ -286,9 +286,17 @@ async function handleResumeFiles(fileList) {
   hint.textContent = '正在努力解析简历文件,请稍候...';
   await new Promise(r => setTimeout(r, 50));
 
-  // 去重:同名文件覆盖旧版本
+  // 去重：同名文件覆盖旧版本
   const existing = new Set(files.map(f => f.name));
-  for (const f of fileList) { if (existing.has(f.name)) { alert('⚠️ ' + f.name + ' 已存在,已替换为新版本'); files.splice(files.findIndex(x => x.name === f.name), 1); } }
+  for (const f of fileList) {
+    if (existing.has(f.name)) {
+      alert('⚠️ ' + f.name + ' 已存在，已替换为新版本');
+      files.splice(files.findIndex(x => x.name === f.name), 1);
+      continue;
+    }
+  }
+
+  for (const f of fileList) {
     try {
       const text = await parseFile(f);
       const lines = text.split('\n').filter(l => l.trim());
@@ -299,7 +307,7 @@ async function handleResumeFiles(fileList) {
       // 扫描件/图片PDF检测
       if (text.trim().length < 20) { alert('⚠️ ' + f.name + ' 可能为扫描件或图片PDF,无法提取文字。匹配度为 0%。'); }
     } catch(e) {
-      files.push({ name: f.name, candidateName: f.name, text: '【解析失败】', raw: '' });
+      files.push({ name: f.name, candidateName: f.name, text: '【解析失败】' });
     }
   }
 
@@ -537,9 +545,9 @@ function renderTable(results) {
     <tr class="detail-row" id="d${idx}">
       <td colspan="5">
         ${r.matched.length > 0 || r.missing.length > 0 ? `<div style="margin-bottom:12px; padding:8px 12px; background:#F8FAFC; border-radius:8px; font-size:13px; line-height:1.8;"><strong>📊 简历快评:</strong>优势 - ${r.matched.slice(0,3).join('、') || '无突出匹配'};短板 - ${r.missing.slice(0,3).join('、') || '无明显短板'}${r.missing.length > 3 ? '等' : ''}</div>` : ''}
-        ${r.isAI ? `<div style="margin-bottom:16px; padding:12px 16px; background:#EFF6FF; border-radius:8px; border-left:4px solid var(--primary);"><strong style="color:#1E40AF;">🤖 AI 评价：</strong><span style="color:#1E3A8A; font-size:14px; line-height:1.6; margin-left:8px;">${esc(r.reason)}</span></div>` : ''}
-        ${r.strengths && r.strengths.length > 0 ? `<div style="margin:4px 0;font-size:13px;"><strong style="color:var(--success)">💪 核心优势：</strong>${r.strengths.map(s=>`<span style="color:#059669;margin-left:4px">• ${esc(s)}</span>`).join(' ')}</div>` : ''}
-        ${r.risks && r.risks.length > 0 ? `<div style="margin:4px 0 12px 0;font-size:13px;"><strong style="color:#E67E22">⚠️ 风险提示：</strong>${r.risks.map(s=>`<span style="color:#C05621;margin-left:4px">• ${esc(s)}</span>`).join(' ')}</div>` : ''}
+        ${r.isAI ? `<div style="margin-bottom:16px; padding:12px 16px; background:#EFF6FF; border-radius:8px; border-left:4px solid var(--primary);"><strong style="color:#1E40AF;">🤖 AI 评价:</strong><span style="color:#1E3A8A; font-size:14px; line-height:1.6; margin-left:8px;">${esc(r.reason)}</span></div>` : ''}
+        ${r.strengths && r.strengths.length > 0 ? `<div style="margin:4px 0;font-size:13px;"><strong style="color:var(--success)">💪 核心优势:</strong>${r.strengths.map(s=>`<span style="color:#059669;margin-left:4px">• ${esc(s)}</span>`).join(' ')}</div>` : ''}
+        ${r.risks && r.risks.length > 0 ? `<div style="margin:4px 0 12px 0;font-size:13px;"><strong style="color:#E67E22">⚠️ 风险提示:</strong>${r.risks.map(s=>`<span style="color:#C05621;margin-left:4px">• ${esc(s)}</span>`).join(' ')}</div>` : ''}
         <div style="margin:8px 0"><strong style="color:var(--success)">✅ 命中/具备技能 (${r.matched.length}):</strong><br>${r.matched.length ? r.matched.slice(0,15).map(k=>`<span class="tag match">${esc(k)}</span>`).join(' ') : '<span style="color:#94A3B8;font-size:13px;">(未识别出匹配项)</span>'}</div>
         <div style="margin:16px 0 8px 0"><strong style="color:var(--text-muted)">❌ JD提及但未体现 (${r.missing.length}):</strong><br>${r.missing.length ? r.missing.slice(0,10).map(k=>`<span class="tag missing">${esc(k)}</span>`).join(' ') + (r.missing.length>10?' <span style="font-size:12px;color:#94A3B8;">...等项</span>':'') : '<span style="color:#94A3B8;font-size:13px;">(完美覆盖!)</span>'}</div>
         ${r.questions && r.questions.length > 0 ? `<div style="margin-top:16px;padding:12px 16px;background:#FFF7ED;border-radius:8px;border-left:4px solid #F59E0B;"><strong style="color:#D97706;">🎯 面试追问建议:</strong><ol style="margin:8px 0 0 16px;color:#92400E;font-size:13px;line-height:2;">${r.questions.map(q => `<li>${esc(q)}</li>`).join('')}</ol></div>` : ''}

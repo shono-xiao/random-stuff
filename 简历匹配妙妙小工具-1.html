@@ -302,7 +302,7 @@ async function handleResumeFiles(fileList) {
       const lines = text.split('\n').filter(l => l.trim());
       // 优先用文件名提取姓名,第一行文字作备选
       const fnName = f.name.replace(/[_\.].*/, '').replace(/^\d+[.\-_]?/, '').trim();
-      const name = fnName && fnName.length <= 10 ? fnName : (lines[0]?.replace(/[||\s\-::--].*$/, '').trim() || f.name.replace(/\.[^.]+$/, ''));
+      const name = fnName && fnName.length <= 10 ? fnName : (lines[0]?.replace(/[|｜\s\-:：—–].*$/, '').trim() || f.name.replace(/\.[^.]+$/, ''));
       files.push({ name: f.name, candidateName: name, text: text.substring(0, 8000) });
       // 扫描件/图片PDF检测
       if (text.trim().length < 20) { alert('⚠️ ' + f.name + ' 可能为扫描件或图片PDF,无法提取文字。匹配度为 0%。'); }

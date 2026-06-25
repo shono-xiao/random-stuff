@@ -455,18 +455,34 @@ async function analyzeWithAI(jd) {
           messages: [
             {
               role: "system",
-              content: `你是一个专业的HR技术面试官。请阅读JD和候选人的简历,并进行匹配度评分(0-100)。
-请严格且只输出以下JSON格式(不要输出Markdown包裹框):
+              content: `你是一位资深招聘经理,不是聊天助手。你的任务不是评价候选人是否优秀,而是判断候选人与JD的匹配程度。
+
+=== 核心原则 ===
+1. 严格按照JD要求评分,不要因为候选人背景优秀/学历高/年限长而额外加分
+2. 只评估与JD直接相关的信息
+3. 候选人未提及的能力视为不具备,不要自行推测或脑补
+4. 不要因为行业经验相似就认为拥有相关能力
+
+=== 评分标准 ===
+90-100:满足绝大多数核心要求
+70-89:满足主要要求,存在少量缺失
+50-69:满足部分要求
+30-49:仅少量相关经验
+0-29:基本不匹配
+
+=== 输出格式(严格JSON,不要Markdown包裹框)===
 {
   "score": 85,
-  "matched": ["Python", "微服务架构"],
-  "missing": ["Docker经验"],
-  "reason": "该候选人有很强的后端基础,但缺乏容器化部署的实战经验。"${document.getElementById('genQuestions').checked ? ',\n  "questions": ["你们的RAG召回方案是怎么设计的?", "Agent工具调用失败时怎么兜底?", "如何评估Prompt效果?"]' : ''}
+  "matched": ["Agent开发", "Prompt设计"],
+  "missing": ["RAG经验"],
+  "strengths": ["有完整Agent项目经验", "具备Prompt优化能力"],
+  "risks": ["未体现RAG经验", "未体现知识库建设经验"],
+  "reason": "该候选人Agent和Prompt经验扎实,但RAG方向未在简历中体现,建议面试时重点确认。"${document.getElementById('genQuestions').checked ? ',\n  "questions": ["介绍一下你做过的Agent架构设计", "Prompt效果如何评估和迭代?", "如果RAG召回率低你会怎么排查?"]' : ''}
 }`
             },
             {
               role: "user",
-              content: `【JD 职位要求】:\n${jd.substring(0, 3000)}\n\n【候选人简历内容】:\n${f.text.substring(0, 4000)}`
+              content: `【JD 职位要求】:\n${jd.substring(0, 3000)}\n\n【候选人简历内容】:\n${f.text.substring(0, 4000)}\n\n请先提炼JD中的核心要求(must_have 和 nice_to_have),再逐一比对候选人简历中是否体现这些能力,给出评分。`
             }
           ],
           temperature: 0.1
@@ -485,6 +501,8 @@ async function analyzeWithAI(jd) {
         score: Number(result.score) || 0,
         matched: Array.isArray(result.matched) ? result.matched : (typeof result.matched === 'string' ? [result.matched] : []),
         missing: Array.isArray(result.missing) ? result.missing : (typeof result.missing === 'string' ? [result.missing] : []),
+        strengths: Array.isArray(result.strengths) ? result.strengths : [],
+        risks: Array.isArray(result.risks) ? result.risks : [],
         reason: String(result.reason || '无评价'),
         isAI: true,
         questions: result.questions || []
@@ -519,11 +537,13 @@ function renderTable(results) {
     <tr class="detail-row" id="d${idx}">
       <td colspan="5">
         ${r.matched.length > 0 || r.missing.length > 0 ? `<div style="margin-bottom:12px; padding:8px 12px; background:#F8FAFC; border-radius:8px; font-size:13px; line-height:1.8;"><strong>📊 简历快评:</strong>优势 - ${r.matched.slice(0,3).join('、') || '无突出匹配'};短板 - ${r.missing.slice(0,3).join('、') || '无明显短板'}${r.missing.length > 3 ? '等' : ''}</div>` : ''}
-        ${r.isAI ? `<div style="margin-bottom:16px; padding:12px 16px; background:#EFF6FF; border-radius:8px; border-left:4px solid var(--primary);"><strong style="color:#1E40AF;">🤖 AI 评价:</strong><span style="color:#1E3A8A; font-size:14px; line-height:1.6; margin-left:8px;">${esc(r.reason)}</span></div>` : ''}
+        ${r.isAI ? `<div style="margin-bottom:16px; padding:12px 16px; background:#EFF6FF; border-radius:8px; border-left:4px solid var(--primary);"><strong style="color:#1E40AF;">🤖 AI 评价：</strong><span style="color:#1E3A8A; font-size:14px; line-height:1.6; margin-left:8px;">${esc(r.reason)}</span></div>` : ''}
+        ${r.strengths && r.strengths.length > 0 ? `<div style="margin:4px 0;font-size:13px;"><strong style="color:var(--success)">💪 核心优势：</strong>${r.strengths.map(s=>`<span style="color:#059669;margin-left:4px">• ${esc(s)}</span>`).join(' ')}</div>` : ''}
+        ${r.risks && r.risks.length > 0 ? `<div style="margin:4px 0 12px 0;font-size:13px;"><strong style="color:#E67E22">⚠️ 风险提示：</strong>${r.risks.map(s=>`<span style="color:#C05621;margin-left:4px">• ${esc(s)}</span>`).join(' ')}</div>` : ''}
         <div style="margin:8px 0"><strong style="color:var(--success)">✅ 命中/具备技能 (${r.matched.length}):</strong><br>${r.matched.length ? r.matched.slice(0,15).map(k=>`<span class="tag match">${esc(k)}</span>`).join(' ') : '<span style="color:#94A3B8;font-size:13px;">(未识别出匹配项)</span>'}</div>
-        <div style="margin:16px 0 8px 0"><strong style="color:var(--text-muted)">❌ JD提及但未体现 (${r.missing.length})：</strong><br>${r.missing.length ? r.missing.slice(0,10).map(k=>`<span class="tag missing">${esc(k)}</span>`).join(' ') + (r.missing.length>10?' <span style="font-size:12px;color:#94A3B8;">...等项</span>':'') : '<span style="color:#94A3B8;font-size:13px;">（完美覆盖！）</span>'}</div>
-        ${r.questions && r.questions.length > 0 ? `<div style="margin-top:16px;padding:12px 16px;background:#FFF7ED;border-radius:8px;border-left:4px solid #F59E0B;"><strong style="color:#D97706;">🎯 面试追问建议：</strong><ol style="margin:8px 0 0 16px;color:#92400E;font-size:13px;line-height:2;">${r.questions.map(q => `<li>${esc(q)}</li>`).join('')}</ol></div>` : ''}
-        ${!r.isAI ? `<div style="color:#94A3B8;font-size:12px;margin-top:16px;border-top:1px dashed #E2E8F0;padding-top:12px;">💡 提示：当前为纯本地规则匹配，对同义词包容度较低。推荐开启「AI 深度匹配」获取更智能的解读。</div>` : ''}
+        <div style="margin:16px 0 8px 0"><strong style="color:var(--text-muted)">❌ JD提及但未体现 (${r.missing.length}):</strong><br>${r.missing.length ? r.missing.slice(0,10).map(k=>`<span class="tag missing">${esc(k)}</span>`).join(' ') + (r.missing.length>10?' <span style="font-size:12px;color:#94A3B8;">...等项</span>':'') : '<span style="color:#94A3B8;font-size:13px;">(完美覆盖!)</span>'}</div>
+        ${r.questions && r.questions.length > 0 ? `<div style="margin-top:16px;padding:12px 16px;background:#FFF7ED;border-radius:8px;border-left:4px solid #F59E0B;"><strong style="color:#D97706;">🎯 面试追问建议:</strong><ol style="margin:8px 0 0 16px;color:#92400E;font-size:13px;line-height:2;">${r.questions.map(q => `<li>${esc(q)}</li>`).join('')}</ol></div>` : ''}
+        ${!r.isAI ? `<div style="color:#94A3B8;font-size:12px;margin-top:16px;border-top:1px dashed #E2E8F0;padding-top:12px;">💡 提示:当前为纯本地规则匹配,对同义词包容度较低。推荐开启「AI 深度匹配」获取更智能的解读。</div>` : ''}
       </td>
     </tr>`;
   });

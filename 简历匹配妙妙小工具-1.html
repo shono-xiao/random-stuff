@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>简历批量匹配（AI岗位） · 旗舰版</title>
+<title>简历批量匹配(AI岗位) · 旗舰版</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/mammoth@1.8.0/mammoth.browser.min.js"></script>
 <style>
@@ -34,7 +34,7 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* 顶部导航：窄一点漂亮点，严肃高级 */
+/* 顶部导航:窄一点漂亮点,严肃高级 */
 .header {
   height: 64px;
   background: var(--header-bg);
@@ -53,7 +53,7 @@ body {
 .header-right { display: flex; align-items: center; gap: 24px; color: #94A3B8; font-size: 13px; }
 .author { color: #64748B; font-size: 12px; border-left: 1px solid rgba(255,255,255,0.1); padding-left: 24px; }
 
-/* 主工作区：居中对齐，留白呼吸感 */
+/* 主工作区:居中对齐,留白呼吸感 */
 .main { flex: 1; padding: 32px; max-width: 1400px; margin: 0 auto; width: 100%; }
 .grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(480px, 1fr)); gap: 24px; margin-bottom: 24px; }
 
@@ -140,7 +140,7 @@ tr:hover td { background: #F8FAFC; }
       <h3>📝 职位描述 (JD) <span style="color:var(--text-muted); font-size:13px; font-weight:normal; margin-left:8px;">拖入文件或粘贴文本</span></h3>
       <div class="drop-zone" id="jdDrop" onclick="document.getElementById('jdFile').click()">
         <div class="icon" id="jdIcon">📄</div>
-        <div class="hint" id="jdHint">拖入 JD 文件至此（PDF / Word / TXT）<br>或点击选择文件</div>
+        <div class="hint" id="jdHint">拖入 JD 文件至此(PDF / Word / TXT)<br>或点击选择文件</div>
       </div>
       <input type="file" id="jdFile" accept=".pdf,.docx,.txt" style="display:none" onchange="loadJDFile(this.files[0])">
       <textarea id="jd" placeholder="也可直接在此处粘贴 JD 文本内容..."></textarea>
@@ -160,7 +160,7 @@ tr:hover td { background: #F8FAFC; }
   <div class="ai-toggle-box">
     <label class="switch-label">
       <input type="checkbox" id="useAICheckbox" onchange="toggleAI()">
-      🤖 启用 AI 大模型深度匹配（OpenAI 格式 API）<br><span style="font-size:12px;color:#94a3b8;font-weight:normal;">⚠️ 使用第三方API存在数据泄漏风险，建议使用官方API（如DeepSeek官方api.deepseek.com）</span>
+      🤖 启用 AI 大模型深度匹配(OpenAI 格式 API)<br><span style="font-size:12px;color:#94a3b8;font-weight:normal;">⚠️ 使用第三方API存在数据泄漏风险,建议使用官方API(如DeepSeek官方api.deepseek.com)</span>
     </label>
     <div class="ai-settings" id="aiSettings">
       <div class="api-inputs">
@@ -169,7 +169,7 @@ tr:hover td { background: #F8FAFC; }
         <input type="password" id="aiKey" placeholder="输入 API Key (sk-...)">
       </div>
       <div class="ai-hint">
-        <span>💡 <b>提示：</b>使用 API 调用大模型需要向 AI 公司付费，推荐使用 DeepSeek 物美价廉。API Key 需要自己申请，如果嫌麻烦，可以撒娇找姐姐提供“爱心经济支持” 💖</span>
+        <span>💡 <b>提示:</b>使用 API 调用大模型需要向 AI 公司付费,推荐使用 DeepSeek 物美价廉。API Key 需要自己申请,如果嫌麻烦,可以撒娇找姐姐提供"爱心经济支持" 💖</span>
       </div>
     </div>
   </div>
@@ -209,7 +209,7 @@ function toggleAI() {
   panel.classList.toggle('show', isChecked);
 }
 
-// 修复过的文件解析逻辑 (增加异步延迟，防止浏览器假死)
+// 修复过的文件解析逻辑 (增加异步延迟,防止浏览器假死)
 async function parseFile(file) {
   if (file.name.endsWith('.pdf')) {
     const buf = await file.arrayBuffer();
@@ -222,11 +222,11 @@ async function parseFile(file) {
       pages.push(content.items.map(it => it.str).join(' '));
     }
     if (pdf.numPages > maxPages) {
-      alert('📄 ' + file.name + ' 共 ' + pdf.numPages + ' 页，仅解析前 ' + maxPages + ' 页。大文件建议提取关键页后再上传。');
+      alert('📄 ' + file.name + ' 共 ' + pdf.numPages + ' 页,仅解析前 ' + maxPages + ' 页。大文件建议提取关键页后再上传。');
     }
     return pages.join('\n');
   } else if (file.name.endsWith('.doc')) {
-      alert('暂不支持 .doc 格式，请用 Word 另存为 .docx 后重新上传');
+      alert('暂不支持 .doc 格式,请用 Word 另存为 .docx 后重新上传');
       return '';
     } else if (file.name.endsWith('.docx')) {
     const buf = await file.arrayBuffer();
@@ -244,18 +244,18 @@ async function loadJDFile(file) {
   const icon = document.getElementById('jdIcon');
   icon.textContent = '⏳';
   hint.textContent = '正在解析 JD 文件...';
-  
+
   // 强制浏览器渲染 Loading 状态
-  await new Promise(r => setTimeout(r, 50)); 
-  
+  await new Promise(r => setTimeout(r, 50));
+
   try {
     const text = await parseFile(file);
     document.getElementById('jd').value = text.substring(0, 10000);
     document.getElementById('jdDrop').classList.add('jd-loaded');
     icon.textContent = '📄';
-    hint.textContent = '✅ 已加载：' + file.name;
+    hint.textContent = '✅ 已加载:' + file.name;
   } catch(e) {
-    alert('JD文件解析失败：' + file.name);
+    alert('JD文件解析失败:' + file.name);
     icon.textContent = '📄';
     hint.textContent = '拖入 JD 文件至此或点击选择文件';
   }
@@ -277,24 +277,28 @@ async function handleResumeFiles(fileList) {
   const hint = document.getElementById('resumeHint');
   const icon = document.getElementById('resumeIcon');
   const originHint = hint.innerHTML;
-  
-  icon.textContent = '⏳';
-  hint.textContent = '正在努力解析简历文件，请稍候...';
-  await new Promise(r => setTimeout(r, 50)); 
 
-  for (const f of fileList) {
+  icon.textContent = '⏳';
+  hint.textContent = '正在努力解析简历文件,请稍候...';
+  await new Promise(r => setTimeout(r, 50));
+
+  // 去重:同名文件覆盖旧版本
+  const existing = new Set(files.map(f => f.name));
+  for (const f of fileList) { if (existing.has(f.name)) { alert('⚠️ ' + f.name + ' 已存在,已替换为新版本'); files.splice(files.findIndex(x => x.name === f.name), 1); } }
     try {
       const text = await parseFile(f);
       const lines = text.split('\n').filter(l => l.trim());
-      // 优先用文件名提取姓名，第一行文字作备选
+      // 优先用文件名提取姓名,第一行文字作备选
       const fnName = f.name.replace(/[_\.].*/, '').replace(/^\d+[.\-_]?/, '').trim();
-      const name = fnName && fnName.length <= 10 ? fnName : (lines[0]?.replace(/[|｜\s\-:：—–].*$/, '').trim() || f.name.replace(/\.[^.]+$/, ''));
-      files.push({ name: f.name, candidateName: name, text: text.substring(0, 8000), raw: text });
+      const name = fnName && fnName.length <= 10 ? fnName : (lines[0]?.replace(/[||\s\-::--].*$/, '').trim() || f.name.replace(/\.[^.]+$/, ''));
+      files.push({ name: f.name, candidateName: name, text: text.substring(0, 8000) });
+      // 扫描件/图片PDF检测
+      if (text.trim().length < 20) { alert('⚠️ ' + f.name + ' 可能为扫描件或图片PDF,无法提取文字。匹配度为 0%。'); }
     } catch(e) {
       files.push({ name: f.name, candidateName: f.name, text: '【解析失败】', raw: '' });
     }
   }
-  
+
   icon.textContent = '📂';
   hint.innerHTML = originHint;
   document.getElementById('fileInput').value = '';
@@ -309,11 +313,11 @@ function updateFileList() {
 }
 function removeFile(i) { files.splice(i, 1); updateFileList(); }
 
-/* 
+/*
 =========================================
-🔥 关键词匹配：中文用 includes，英文用灵活正则
+🔥 关键词匹配:中文用 includes,英文用灵活正则
    - 中文无 \b 边界 → includes() 精确匹配
-   - 英文短语（含空格/连字符）→ 支持 _ - 空格 三种分隔符
+   - 英文短语(含空格/连字符)→ 支持 _ - 空格 三种分隔符
    - 英文单词 → \b 边界匹配
 =========================================
 */
@@ -327,7 +331,7 @@ const AI_KEYWORDS = [
 ];
 
 function buildFlexibleRegex(kw) {
-  // 如果包含空格或连字符，做成灵活匹配：[ _-]?
+  // 如果包含空格或连字符,做成灵活匹配:[ _-]?
   if (/[\s\-]/.test(kw)) {
     const separated = kw.toLowerCase().split(/[\s\-]+/);
     const pattern = separated.map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('[\\s_\\-]?');
@@ -346,7 +350,7 @@ function extractKeywords(text) {
     const lk = kw.toLowerCase();
     if (seen.has(lk)) continue;
 
-    // 纯英文关键词（含连字符或空格）→ 灵活正则
+    // 纯英文关键词(含连字符或空格)→ 灵活正则
     if (/^[a-z0-9\-\s]+$/i.test(kw)) {
       const regex = buildFlexibleRegex(kw);
       if (regex.test(text)) {
@@ -354,7 +358,7 @@ function extractKeywords(text) {
         seen.add(lk);
       }
     } else {
-      // 中文关键词 → includes()（中文无 \b 边界）
+      // 中文关键词 → includes()(中文无 \b 边界)
       if (lowerText.includes(lk)) {
         found.push(kw);
         seen.add(lk);
@@ -364,14 +368,14 @@ function extractKeywords(text) {
   return found;
 }
 
-/* 
+/*
 =========================================
-🔥 修复 2 & 新增：本地规则匹配 vs AI 深度匹配
+🔥 修复 2 & 新增:本地规则匹配 vs AI 深度匹配
 =========================================
 */
 async function batchAnalyze() {
   const jd = document.getElementById('jd').value.trim();
-  if (!jd) { alert('请先填写或拖入职位描述（JD）'); return; }
+  if (!jd) { alert('请先填写或拖入职位描述(JD)'); return; }
   if (files.length === 0) { alert('请先拖入简历文件'); return; }
 
   const useAI = document.getElementById('useAICheckbox').checked;
@@ -404,7 +408,7 @@ function analyzeLocal(jd) {
     const total = jdKw.length || 1;
     const overlap = [...jdSet].filter(k => resumeSet.has(k)).length;
     const score = Math.min(100, Math.round((matched.length / total) * 70 + (overlap / Math.max(jdSet.size, 1)) * 30));
-    
+
     return { name: f.candidateName, fileName: f.name, score, matched: [...new Set(matched)], missing: [...new Set(missing)], isAI: false };
   });
 
@@ -427,7 +431,7 @@ async function analyzeWithAI(jd) {
       <td colspan="5" style="text-align:center; padding: 60px 20px;">
         <div style="font-size:32px; animation: spin 2s linear infinite; display:inline-block;">⏳</div>
         <div style="margin-top:20px; font-size:16px; font-weight:600; color:var(--primary);">🤖 AI 正在疯狂阅卷中...</div>
-        <div style="margin-top:8px; color:var(--text-muted); font-size:13px;">这可能需要一点时间，先喝口水吧~</div>
+        <div style="margin-top:8px; color:var(--text-muted); font-size:13px;">这可能需要一点时间,先喝口水吧~</div>
       </td>
     </tr>
   `;
@@ -447,13 +451,13 @@ async function analyzeWithAI(jd) {
           messages: [
             {
               role: "system",
-              content: `你是一个专业的HR技术面试官。请阅读JD和候选人的简历，并进行匹配度评分（0-100）。
-请严格且只输出以下JSON格式（不要输出Markdown包裹框）：
+              content: `你是一个专业的HR技术面试官。请阅读JD和候选人的简历,并进行匹配度评分(0-100)。
+请严格且只输出以下JSON格式(不要输出Markdown包裹框):
 {
   "score": 85,
   "matched": ["Python", "微服务架构"],
   "missing": ["Docker经验"],
-  "reason": "该候选人有很强的后端基础，但缺乏容器化部署的实战经验。"
+  "reason": "该候选人有很强的后端基础,但缺乏容器化部署的实战经验。"
 }`
             },
             {
@@ -466,18 +470,18 @@ async function analyzeWithAI(jd) {
       });
       const data = await res.json();
       if (data.error) throw new Error(data.error.message);
-      
+
       let content = data.choices[0].message.content.trim();
-      // 容错处理：清理可能带有 markdown 代码块标记的响应
+      // 容错处理:清理可能带有 markdown 代码块标记的响应
       content = content.replace(/^```(?:json)?/i, '').replace(/```$/i, '').trim();
       const result = JSON.parse(content);
-      
+
       return {
         name: f.candidateName, fileName: f.name,
-        score: result.score || 0,
-        matched: result.matched || [],
-        missing: result.missing || [],
-        reason: result.reason || "无评价",
+        score: Number(result.score) || 0,
+        matched: Array.isArray(result.matched) ? result.matched : (typeof result.matched === 'string' ? [result.matched] : []),
+        missing: Array.isArray(result.missing) ? result.missing : (typeof result.missing === 'string' ? [result.missing] : []),
+        reason: String(result.reason || '无评价'),
         isAI: true
       };
     } catch(e) {
@@ -509,10 +513,11 @@ function renderTable(results) {
     </tr>
     <tr class="detail-row" id="d${idx}">
       <td colspan="5">
+        ${r.matched.length > 0 || r.missing.length > 0 ? `<div style="margin-bottom:12px; padding:8px 12px; background:#F8FAFC; border-radius:8px; font-size:13px; line-height:1.8;"><strong>📊 简历快评：</strong>优势 — ${r.matched.slice(0,3).join('、') || '无突出匹配'}；短板 — ${r.missing.slice(0,3).join('、') || '无明显短板'}${r.missing.length > 3 ? '等' : ''}</div>` : ''}
         ${r.isAI ? `<div style="margin-bottom:16px; padding:12px 16px; background:#EFF6FF; border-radius:8px; border-left:4px solid var(--primary);"><strong style="color:#1E40AF;">🤖 AI 评价：</strong><span style="color:#1E3A8A; font-size:14px; line-height:1.6; margin-left:8px;">${esc(r.reason)}</span></div>` : ''}
-        <div style="margin:8px 0"><strong style="color:var(--success)">✅ 命中/具备技能 (${r.matched.length})：</strong><br>${r.matched.length ? r.matched.slice(0,15).map(k=>`<span class="tag match">${esc(k)}</span>`).join(' ') : '<span style="color:#94A3B8;font-size:13px;">（未识别出匹配项）</span>'}</div>
-        <div style="margin:16px 0 8px 0"><strong style="color:var(--text-muted)">❌ JD提及但未体现 (${r.missing.length})：</strong><br>${r.missing.length ? r.missing.slice(0,10).map(k=>`<span class="tag missing">${esc(k)}</span>`).join(' ') + (r.missing.length>10?' <span style="font-size:12px;color:#94A3B8;">...等项</span>':'') : '<span style="color:#94A3B8;font-size:13px;">（完美覆盖！）</span>'}</div>
-        ${!r.isAI ? `<div style="color:#94A3B8;font-size:12px;margin-top:16px;border-top:1px dashed #E2E8F0;padding-top:12px;">💡 提示：当前为纯本地规则匹配，对同义词包容度较低。推荐开启「AI 深度匹配」获取更智能的解读。</div>` : ''}
+        <div style="margin:8px 0"><strong style="color:var(--success)">✅ 命中/具备技能 (${r.matched.length}):</strong><br>${r.matched.length ? r.matched.slice(0,15).map(k=>`<span class="tag match">${esc(k)}</span>`).join(' ') : '<span style="color:#94A3B8;font-size:13px;">(未识别出匹配项)</span>'}</div>
+        <div style="margin:16px 0 8px 0"><strong style="color:var(--text-muted)">❌ JD提及但未体现 (${r.missing.length}):</strong><br>${r.missing.length ? r.missing.slice(0,10).map(k=>`<span class="tag missing">${esc(k)}</span>`).join(' ') + (r.missing.length>10?' <span style="font-size:12px;color:#94A3B8;">...等项</span>':'') : '<span style="color:#94A3B8;font-size:13px;">(完美覆盖!)</span>'}</div>
+        ${!r.isAI ? `<div style="color:#94A3B8;font-size:12px;margin-top:16px;border-top:1px dashed #E2E8F0;padding-top:12px;">💡 提示:当前为纯本地规则匹配,对同义词包容度较低。推荐开启「AI 深度匹配」获取更智能的解读。</div>` : ''}
       </td>
     </tr>`;
   });

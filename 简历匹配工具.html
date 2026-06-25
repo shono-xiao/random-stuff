@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>简历匹配工具 · beiyu-notes</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, "Microsoft YaHei", sans-serif; background: #1a1a2e; color: #e0e0e0; min-height: 100vh; display: flex; }
+.sidebar { width: 240px; background: #16213e; padding: 24px 16px; display: flex; flex-direction: column; gap: 12px; flex-shrink: 0; }
+.sidebar h2 { color: #e94560; font-size: 18px; margin-bottom: 8px; }
+.sidebar p { color: #888; font-size: 12px; line-height: 1.6; }
+.main { flex: 1; padding: 24px; overflow-y: auto; }
+.card { background: #16213e; border-radius: 12px; padding: 20px; margin-bottom: 16px; }
+.card h3 { color: #e94560; margin-bottom: 12px; font-size: 14px; text-transform: uppercase; letter-spacing: 1px; }
+textarea { width: 100%; min-height: 160px; background: #0f3460; border: 1px solid #333; border-radius: 8px; color: #e0e0e0; padding: 14px; font-size: 14px; resize: vertical; font-family: inherit; }
+textarea:focus { outline: none; border-color: #e94560; }
+.btn { background: #e94560; color: white; border: none; padding: 12px 32px; border-radius: 8px; cursor: pointer; font-size: 15px; font-weight: 600; transition: background .2s; }
+.btn:hover { background: #c73852; }
+.btn:disabled { background: #444; cursor: not-allowed; }
+.result { display: none; }
+.result.show { display: block; }
+.score-bar { height: 8px; background: #0f3460; border-radius: 4px; margin: 12px 0; overflow: hidden; }
+.score-fill { height: 100%; background: linear-gradient(90deg, #e94560, #00d4aa); border-radius: 4px; transition: width .5s; }
+.score-text { font-size: 36px; font-weight: 700; }
+.score-label { font-size: 14px; color: #888; }
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.match-item { background: #0f3460; border-radius: 8px; padding: 12px; margin-bottom: 8px; }
+.match-item .keyword { color: #00d4aa; font-weight: 600; }
+.match-item .found { color: #e94560; }
+.match-item .missing { color: #888; }
+.tag { display: inline-block; padding: 4px 10px; border-radius: 20px; font-size: 12px; margin: 2px; }
+.tag.match { background: rgba(0,212,170,.15); color: #00d4aa; }
+.tag.partial { background: rgba(233,69,96,.15); color: #e94560; }
+.tag.missing { background: rgba(136,136,136,.15); color: #888; }
+.suggestion { border-left: 3px solid #e94560; padding: 8px 14px; margin: 8px 0; background: rgba(233,69,96,.05); border-radius: 0 8px 8px 0; font-size: 13px; }
+</style>
+</head>
+<body>
+<div class="sidebar">
+  <h2>📋 简历匹配工具</h2>
+  <p>粘贴职位描述（JD）和候选人简历，自动分析匹配度。</p>
+  <p style="margin-top:8px">所有计算在本地浏览器完成，不上传任何数据。</p>
+  <p style="margin-top:auto; padding-top:24px; color:#555; font-size:11px">beiyu-notes<br>江夜 & 北屿<br>2026.06</p>
+</div>
+<div class="main">
+  <div class="card">
+    <h3>📌 步骤</h3>
+    <p style="color:#888;font-size:13px;line-height:1.8">1. 在最左边粘贴<strong>职位描述</strong>（JD）&nbsp; → &nbsp; 2. 在中间粘贴<strong>候选人简历</strong> &nbsp; → &nbsp; 3. 点「开始匹配」&nbsp; → &nbsp; 4. 看结果</p>
+  </div>
+
+  <div class="grid-2">
+    <div class="card">
+      <h3>📝 职位描述 (JD)</h3>
+      <textarea id="jd" placeholder="粘贴职位描述...&#10;&#10;例如：&#10;负责AI Agent产品的用户侧交互设计...&#10;熟悉LLM应用、Prompt Engineering...&#10;具备Skill开发和全链路策略设计经验..."></textarea>
+    </div>
+    <div class="card">
+      <h3>👤 候选人简历</h3>
+      <textarea id="resume" placeholder="粘贴候选人简历...&#10;&#10;例如：&#10;张三 | 3年AI产品经验&#10;主导过Agent对话流设计...&#10;熟悉LangChain/RAG/Function Calling..."></textarea>
+    </div>
+  </div>
+
+  <div style="text-align:center;margin:16px 0">
+    <button class="btn" id="analyzeBtn" onclick="analyze()">🔍 开始匹配</button>
+  </div>
+
+  <div class="result" id="result">
+    <div class="card">
+      <h3>📊 匹配结果</h3>
+      <div style="display:flex;align-items:center;gap:16px;margin:12px 0">
+        <span class="score-text" id="scoreText">--</span>
+        <div style="flex:1">
+          <div class="score-bar"><div class="score-fill" id="scoreFill" style="width:0%"></div></div>
+          <span class="score-label" id="scoreLabel">--</span>
+        </div>
+      </div>
+      <div id="keywordResult"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+function extractKeywords(text) {
+  const patterns = [
+    // AI / Agent
+    /\b(AI|人工智能|agent|智能体|大模型|LLM|GPT|Claude|DeepSeek|通义|文心|豆包|Grok|Gemini)\b/gi,
+    // Skills
+    /\b(skill|技能|prompt|提示词|RAG|检索增强|function.?call|工具调用|tool.?use|MCP|plugin|插件|API|微调|fine.?tun|embedding|向量)\b/gi,
+    // Architecture
+    /\b(agentic|自主|规划|planning|reasoning|推理|chain.?of.?thought|思维链|multi.?agent|多智能体|orchestrat|编排|workflow|工作流|pipeline)\b/gi,
+    // Strategy
+    /\b(策略|strategy|全链路|end.?to.?end|产品|product|用户|user|体验|UX|交互|interaction|设计|design|数据|data|分析|analytics|指标|metric)\b/gi,
+    // Tech
+    /\b(Python|Java|TypeScript|React|Vue|Node|FastAPI|Flask|Docker|K8s|k8s|云原生|cloud)\b/gi,
+    // Soft
+    /\b(沟通|协作|团队|项目管理|需求|owner|ownership|自驱|迭代|优化|AB|实验)\b/gi,
+  ];
+  const found = [];
+  const seen = new Set();
+  for (const p of patterns) {
+    let m;
+    while ((m = p.exec(text)) !== null) {
+      const kw = m[0].toLowerCase();
+      if (!seen.has(kw)) { seen.add(kw); found.push(kw); }
+    }
+  }
+  return found;
+}
+
+function analyze() {
+  const jd = document.getElementById('jd').value.trim();
+  const resume = document.getElementById('resume').value.trim();
+  if (!jd || !resume) { alert('请填写职位描述和候选人简历'); return; }
+
+  const jdKw = extractKeywords(jd);
+  const resumeKw = extractKeywords(resume);
+  const jdSet = new Set(jdKw);
+  const resumeSet = new Set(resumeKw);
+
+  // Direct match
+  let matched = []; let partial = []; let missing = [];
+  for (const kw of jdKw) {
+    if (resumeSet.has(kw)) matched.push(kw);
+    else {
+      // Check partial match (substring)
+      let foundPartial = false;
+      for (const rk of resumeKw) {
+        if (kw.includes(rk) || rk.includes(kw)) { partial.push(kw); foundPartial = true; break; }
+      }
+      if (!foundPartial) missing.push(kw);
+    }
+  }
+
+  // Score
+  const totalKw = jdKw.length || 1;
+  const score = Math.round((matched.length / totalKw) * 60 + (partial.length / totalKw) * 40);
+  const finalScore = Math.min(100, score);
+
+  // Extra: JD semantic overlap bonus
+  const overlapRatio = [...jdSet].filter(k => resumeSet.has(k)).length / Math.max(jdSet.size, 1);
+  const adjustedScore = Math.min(100, Math.round(finalScore * 0.7 + overlapRatio * 100 * 0.3));
+
+  document.getElementById('scoreText').textContent = adjustedScore + '%';
+  document.getElementById('scoreFill').style.width = adjustedScore + '%';
+  document.getElementById('scoreLabel').textContent = adjustedScore >= 70 ? '匹配度较高，建议推送业务筛选' : adjustedScore >= 40 ? '部分匹配，可考虑初筛' : '匹配度偏低';
+
+  // Keywords display
+  let kwHTML = '';
+  if (matched.length) kwHTML += '<div style="margin:8px 0"><strong style="color:#00d4aa">✅ 匹配 (' + matched.length + '个)：</strong><br>' + matched.map(k => '<span class="tag match">' + k + '</span>').join(' ') + '</div>';
+  if (partial.length) kwHTML += '<div style="margin:8px 0"><strong style="color:#e94560">⚠️ 部分匹配 (' + partial.length + '个)：</strong><br>' + partial.map(k => '<span class="tag partial">' + k + '</span>').join(' ') + '</div>';
+  if (missing.length) kwHTML += '<div style="margin:8px 0"><strong style="color:#888">❌ 未匹配 (' + missing.length + '个)：</strong><br>' + missing.map(k => '<span class="tag missing">' + k + '</span>').join(' ') + '</div>';
+
+  // Suggestions
+  if (missing.length > 0) {
+    kwHTML += '<div style="margin:16px 0"><strong>💡 给HR的建议：</strong></div>';
+    kwHTML += '<div class="suggestion">简历中缺少JD提到的以下关键词：<strong>' + missing.slice(0,5).join('、') + '</strong>' + (missing.length > 5 ? '等' : '') + '。但这些可能是候选人用了不同表述，建议关注其项目经验中的实际能力，而非纯关键词匹配。</div>';
+  }
+
+  document.getElementById('keywordResult').innerHTML = kwHTML;
+  document.getElementById('result').classList.add('show');
+}
+</script>
+</body>
+</html>

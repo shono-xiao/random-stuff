@@ -151,15 +151,16 @@ tr:hover td { background: #F8FAFC; }
       <textarea id="jd" placeholder="也可直接在此处粘贴 JD 文本内容..."></textarea>
     </div>
 
-    <div class="card" style="margin-bottom:0">
-      <h3>👥 候选人简历 <span style="color:var(--text-muted); font-size:13px; font-weight:normal; margin-left:8px;">支持批量拖拽</span></h3>
-      <div class="drop-zone" id="resumeDrop" onclick="document.getElementById('fileInput').click()" style="height: calc(100% - 44px);">
-        <div class="icon" id="resumeIcon">📂</div>
-        <div class="hint" id="resumeHint">将多份简历文件拖拽至此<br>支持 .pdf / .docx / .txt 格式</div>
+  <div class="card" style="margin-bottom:0; display: flex; flex-direction: column;">
+        <h3>👥 候选人简历 <span style="color:var(--text-muted); font-size:13px; font-weight:normal; margin-left:8px;">支持批量拖拽</span></h3>
+        <!-- 把原先坑爹的 height 换成 flex: 1，让它自己弹缩 -->
+        <div class="drop-zone" id="resumeDrop" onclick="document.getElementById('fileInput').click()" style="flex: 1; display: flex; flex-direction: column; justify-content: center;">
+          <div class="icon" id="resumeIcon">📂</div>
+          <div class="hint" id="resumeHint">将多份简历文件拖拽至此<br>支持 .pdf / .docx / .txt 格式</div>
+        </div>
+        <input type="file" id="fileInput" multiple accept=".pdf,.docx,.txt" style="display:none" onchange="handleResumeFiles(this.files)">
+        <div class="file-list" id="fileList"></div>
       </div>
-      <input type="file" id="fileInput" multiple accept=".pdf,.docx,.txt" style="display:none" onchange="handleResumeFiles(this.files)">
-      <div class="file-list" id="fileList"></div>
-    </div>
   </div>
 
   <div class="ai-toggle-box">
@@ -170,7 +171,7 @@ tr:hover td { background: #F8FAFC; }
     <div class="ai-settings" id="aiSettings">
       <div class="api-inputs">
         <input type="text" id="aiBaseUrl" value="https://api.deepseek.com/v1" placeholder="Base URL (默认为 DeepSeek)">
-        <input type="text" id="aiModel" value="deepseek-chat" placeholder="Model Name (如 deepseek-chat)">
+        <input type="text" id="aiModel" value="deepseek-v4-pro" placeholder="Model Name (如 deepseek-v4-pro)">
         <input type="password" id="aiKey" placeholder="输入 API Key (sk-...)">
       </div>
       <div class="ai-hint">
@@ -178,7 +179,7 @@ tr:hover td { background: #F8FAFC; }
       </div>
       <label class="switch-label" style="margin-top:12px;font-size:14px;">
         <input type="checkbox" id="genQuestions" style="width:18px;height:18px;">
-        🎯 为每个候选人自动生成建议
+        🎯 为每个候选人自动生成面试追问建议
       </label>
     </div>
   </div>
@@ -436,6 +437,18 @@ function analyzeLocal(jd) {
   renderTable(results);
 }
 
+// 全局的请求中断控制器
+let aiAbortController = null;
+
+// 取消 AI 匹配任务
+function cancelAITask() {
+  if (aiAbortController) {
+    aiAbortController.abort(); // 立即中断所有正在进行的网络请求
+    showToast('🛑 已手动取消 AI 匹配');
+    document.getElementById('resultCard').style.display = 'none';
+  }
+}
+
 // 【AI 大模型匹配】
 async function analyzeWithAI(jd) {
   const baseUrl = document.getElementById('aiBaseUrl').value.replace(/\/$/, '') + '/chat/completions';
@@ -444,33 +457,117 @@ async function analyzeWithAI(jd) {
 
   if (!apiKey) { showToast('❌ 请输入 API Key'); return; }
 
+  // 初始化中断控制器
+  aiAbortController = new AbortController();
+  const signal = aiAbortController.signal;
+
+  // 渲染 Loading 界面、随机语录框及取消按键
   document.getElementById('resultCard').style.display = 'block';
   document.getElementById('resultTable').innerHTML = `
     <tr>
       <td colspan="5" style="text-align:center; padding: 60px 20px;">
-        <div style="font-size:32px; animation: spin 2s linear infinite; display:inline-block;">⏳</div>
-        <div style="margin-top:20px; font-size:16px; font-weight:600; color:var(--primary);">🤖 AI 正在疯狂阅卷中...</div>
-        <div style="margin-top:8px; color:var(--text-muted); font-size:13px;">这可能需要一点时间,先喝口水吧~</div>
+        <div style="font-size:36px; animation: spin 2s linear infinite; display:inline-block;">⏳</div>
+        <div style="margin-top:20px; font-size:18px; font-weight:600; color:var(--primary);">🤖 AI 正在疯狂阅卷中...</div>
+        
+        <div style="margin-top:24px; display:flex; flex-direction:column; align-items:center;">
+          <div style="background:#EEF2FF; border-radius:24px; padding:10px 24px; display:inline-flex; align-items:center; overflow:hidden;">
+            <div id="loadingMsgText" style="color:#4338CA; font-size:14px; font-weight:500; white-space:nowrap; transition: transform 0.4s ease, opacity 0.4s ease;">
+              ☕ 先喝口温水润润嗓子吧，马上就好...
+            </div>
+          </div>
+          <button onclick="cancelAITask()" class="btn-sm" style="margin-top: 24px; background:#FEF2F2; color:#DC2626; border-color:#FECACA; padding: 8px 24px; border-radius: 20px; font-weight:600; transition: 0.2s;">
+            🛑 停止匹配
+          </button>
+        </div>
       </td>
     </tr>
   `;
 
+  // 语录库 (20+条)
+  const messages = [
+    "🤖 AI碎碎念：要是有一份100%匹配的简历就好了",
+    "👀 正在逐字核对要求... 看看谁是天选之子~",
+    "💧多喝热水多喝热水多喝热水，重要的事情说三遍！💧",
+    "别太累❤️爸爸妈妈还有家人们都为你骄傲！🎉",
+    "深呼吸，今天的你也很棒了哦！🌟",
+    "招人就像海底捞针，但好运总会眷顾耐心的人 🍀",
+    "优秀的打工人已经在路上了，再稍微等一下下...",
+    "再忙也要好好吃饭呀，身体最重要！🍱",
+    "又上了一天班，吃点好的奖励一下自己~ 🍰",
+    "今天辛苦了，吃点好的犒劳一下自己~ 🍣",
+    "让 AI 替你打工，咱们趁机摸会儿鱼 🐟",
+    "揉揉眼睛，看看远方的绿色植物吧 🌿",
+    "简历再多也不怕，毕竟我们有超级算力加持！",
+    "伸个懒腰，放松一下紧绷的肩膀吧~ 💆‍♀️",
+    "🐳大模型悄悄说：这份简历写得真用心呀...",
+    "正在连线算力中心，GPU 疯狂燃烧中 🔥",
+    "别急，正在把简历里的『水分』一点点挤干 🧽",
+    "每一份简历背后，都是一个闪闪发光的梦想 ✨",
+    "保持微笑，好运气会自动找上门来的！😊",
+    "AI 正在思考如何为你设计最刁钻的面试追问 🤔",
+    "念念不忘，必有回响，今天一定能遇到大牛！",
+    "好饭不怕晚，大牛不怕等~ 🍲",
+    "咖啡虽好，可不要贪杯哦 ☕",
+    "匹配度正在飞速拉升中... 马上出结果！📈",
+    "坐久了对腰不好，站起来走动走动吧 🚶‍♂️",
+    "熬夜容易秃头长痘痘，今晚也要早点睡哦 🌙"
+  ];
+
+  // 数组乱序（洗牌算法），保证每次看到的顺序都不一样
+  messages.sort(() => Math.random() - 0.5);
+
+  let msgIndex = 0;
+  // 设置 4 秒一换的定时器
+  const loadingTimer = setInterval(() => {
+    const msgText = document.getElementById('loadingMsgText');
+    if (msgText) {
+      // 1. 旧文字向上滚出，并变透明
+      msgText.style.transform = 'translateY(-20px)';
+      msgText.style.opacity = '0';
+
+      // 2. 等待滚出动画完成 (400ms)
+      setTimeout(() => {
+        msgIndex = (msgIndex + 1) % messages.length;
+        
+        // 瞬间将文字挪到底部隐藏准备
+        msgText.style.transition = 'none'; 
+        msgText.style.transform = 'translateY(20px)';
+        msgText.textContent = messages[msgIndex];
+
+        // 强制浏览器重绘 (关键一步，让浏览器知道位置已经变了)
+        void msgText.offsetWidth;
+
+        // 3. 新文字从下向上滚入，并恢复透明度
+        msgText.style.transition = 'transform 0.4s ease, opacity 0.4s ease';
+        msgText.style.transform = 'translateY(0)';
+        msgText.style.opacity = '1';
+      }, 400); 
+    } else {
+      clearInterval(loadingTimer);
+    }
+  }, 4000);
+
   const batchSize = 5;
   const allResults = [];
-  for (let i = 0; i < files.length; i += batchSize) {
-    const batch = files.slice(i, i + batchSize);
-    const batchPromises = batch.map(async (f) => {
-    try {
-      const res = await fetch(baseUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
-        body: JSON.stringify({
-          model: model,
-          response_format: { type: "json_object" }, 
-          messages: [
-            {
-              role: "system",
-              content: `你是一位资深招聘经理,不是聊天助手。你的任务不是评价候选人是否优秀,而是判断候选人与JD的匹配程度。
+  
+  try {
+    for (let i = 0; i < files.length; i += batchSize) {
+      if (signal.aborted) break; // 如果点击了取消，跳出循环
+      
+      const batch = files.slice(i, i + batchSize);
+      const batchPromises = batch.map(async (f) => {
+        try {
+          const res = await fetch(baseUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+            signal: signal, // 挂载中断信号
+            body: JSON.stringify({
+              model: model,
+              response_format: { type: "json_object" }, 
+              messages: [
+                {
+                  role: "system",
+                  content: `你是一位资深招聘经理,不是聊天助手。你的任务不是评价候选人是否优秀,而是判断候选人与JD的匹配程度。
 
 === 核心原则 ===
 1. 严格按照JD要求评分,不要因为候选人背景优秀/学历高/年限长而额外加分
@@ -494,48 +591,58 @@ async function analyzeWithAI(jd) {
   "risks": ["未体现RAG经验", "未体现知识库建设经验"],
   "reason": "该候选人Agent和Prompt经验扎实,但RAG方向未在简历中体现,建议面试时重点确认。"${document.getElementById('genQuestions').checked ? ',\n  "questions": ["介绍一下你做过的Agent架构设计", "Prompt效果如何评估和迭代?", "如果RAG召回率低你会怎么排查?"]' : ''}
 }`
-            },
-            {
-              role: "user",
-              content: `【JD 职位要求】:\n${jd.substring(0, 3000)}\n\n【候选人简历内容】:\n${f.text.substring(0, 4000)}\n\n请先提炼JD中的核心要求(must_have 和 nice_to_have),再逐一比对候选人简历中是否体现这些能力,给出评分。`
-            }
-          ],
-          temperature: 0.1
-        })
+                },
+                {
+                  role: "user",
+                  content: `【JD 职位要求】:\n${jd.substring(0, 3000)}\n\n【候选人简历内容】:\n${f.text.substring(0, 4000)}\n\n请先提炼JD中的核心要求(must_have 和 nice_to_have),再逐一比对候选人简历中是否体现这些能力,给出评分。`
+                }
+              ],
+              temperature: 0.1
+            })
+          });
+          const data = await res.json();
+          if (data.error) throw new Error(data.error.message);
+
+          let content = data.choices[0].message.content;
+          const jsonMatch = content.match(/\{[\s\S]*\}/);
+          if (jsonMatch) content = jsonMatch[0];
+          
+          const result = JSON.parse(content);
+
+          return {
+            name: f.candidateName, fileName: f.name,
+            score: Number(result.score) || 0,
+            matched: Array.isArray(result.matched) ? result.matched : (typeof result.matched === 'string' ? [result.matched] : []),
+            missing: Array.isArray(result.missing) ? result.missing : (typeof result.missing === 'string' ? [result.missing] : []),
+            strengths: Array.isArray(result.strengths) ? result.strengths : [],
+            risks: Array.isArray(result.risks) ? result.risks : [],
+            reason: String(result.reason || '无评价'),
+            isAI: true,
+            questions: result.questions || []
+          };
+        } catch(e) {
+          if (e.name === 'AbortError') throw e; // 抛出中断错误不记录为解析失败
+          console.error("AI 匹配异常:", f.name, e);
+          return { name: f.candidateName, fileName: f.name, score: 0, matched: [], missing: [], reason: `API 解析失败: ${e.message}`, isAI: true };
+        }
       });
-      const data = await res.json();
-      if (data.error) throw new Error(data.error.message);
-
-      // 安全地提取出JSON对象，无视AI的废话
-      let content = data.choices[0].message.content;
-      const jsonMatch = content.match(/\{[\s\S]*\}/);
-      if (jsonMatch) content = jsonMatch[0];
       
-      const result = JSON.parse(content);
-
-      return {
-        name: f.candidateName, fileName: f.name,
-        score: Number(result.score) || 0,
-        matched: Array.isArray(result.matched) ? result.matched : (typeof result.matched === 'string' ? [result.matched] : []),
-        missing: Array.isArray(result.missing) ? result.missing : (typeof result.missing === 'string' ? [result.missing] : []),
-        strengths: Array.isArray(result.strengths) ? result.strengths : [],
-        risks: Array.isArray(result.risks) ? result.risks : [],
-        reason: String(result.reason || '无评价'),
-        isAI: true,
-        questions: result.questions || []
-      };
-    } catch(e) {
-      console.error("AI 匹配异常:", f.name, e);
-      return { name: f.candidateName, fileName: f.name, score: 0, matched: [], missing: [], reason: `API 解析失败: ${e.message}`, isAI: true };
+      const batchResults = await Promise.all(batchPromises);
+      allResults.push(...batchResults);
     }
-    });
-    const batchResults = await Promise.all(batchPromises);
-    allResults.push(...batchResults);
-  }
 
-  const results = allResults;
-  results.sort((a, b) => b.score - a.score);
-  renderTable(results);
+    if (!signal.aborted) {
+      clearInterval(loadingTimer); 
+      allResults.sort((a, b) => b.score - a.score);
+      renderTable(allResults);
+    }
+
+  } catch(globalError) {
+    clearInterval(loadingTimer);
+    if (globalError.name !== 'AbortError') {
+      showToast('❌ 请求过程中发生异常，请检查网络或 API Key');
+    }
+  }
 }
 
 // 渲染结果表格

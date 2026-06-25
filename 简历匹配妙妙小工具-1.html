@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>简历批量匹配 · 旗舰版</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mammoth@1.8.0/mammoth.browser.min.js"></script>
+<style>
+/* 基础重置与变量 */
+:root {
+  --primary: #4F46E5;       /* 靛蓝主色 */
+  --primary-hover: #4338CA;
+  --header-bg: #0F172A;     /* 顶部导航深邃蓝灰 */
+  --bg-color: #F8FAFC;      /* 极光灰背景 */
+  --card-bg: #FFFFFF;
+  --text-main: #1E293B;
+  --text-muted: #64748B;
+  --border-color: #E2E8F0;
+  --success: #10B981;
+  --warning: #F59E0B;
+  --danger: #EF4444;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  background: var(--bg-color);
+  color: var(--text-main);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* 顶部导航：窄一点漂亮点，严肃高级 */
+.header {
+  height: 64px;
+  background: var(--header-bg);
+  padding: 0 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+.header-left { display: flex; align-items: center; gap: 16px; }
+.header-left h2 { color: #F8FAFC; font-size: 18px; font-weight: 600; letter-spacing: 0.5px; }
+.badge { background: rgba(79, 70, 229, 0.2); color: #818CF8; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 500; border: 1px solid rgba(79, 70, 229, 0.3); }
+.header-right { display: flex; align-items: center; gap: 24px; color: #94A3B8; font-size: 13px; }
+.author { color: #64748B; font-size: 12px; border-left: 1px solid rgba(255,255,255,0.1); padding-left: 24px; }
+
+/* 主工作区：居中对齐，留白呼吸感 */
+.main { flex: 1; padding: 32px; max-width: 1400px; margin: 0 auto; width: 100%; }
+.grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(480px, 1fr)); gap: 24px; margin-bottom: 24px; }
+
+.card {
+  background: var(--card-bg);
+  border-radius: 16px;
+  padding: 28px;
+  border: 1px solid var(--border-color);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.02), 0 2px 4px -1px rgba(0, 0, 0, 0.02);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.card:hover { box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.04); }
+.card h3 { color: var(--text-main); margin-bottom: 16px; font-size: 16px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+
+/* 拖拽与输入区 */
+textarea { width: 100%; height: 160px; background: #F8FAFC; border: 1px solid var(--border-color); border-radius: 12px; color: var(--text-main); padding: 16px; font-size: 14px; line-height: 1.6; resize: vertical; font-family: inherit; transition: all 0.2s; }
+textarea:focus { outline: none; border-color: var(--primary); background: #FFF; box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1); }
+.drop-zone { border: 2px dashed #CBD5E1; border-radius: 12px; padding: 32px 20px; text-align: center; color: var(--text-muted); cursor: pointer; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); margin-bottom: 12px; background: #F8FAFC; }
+.drop-zone:hover, .drop-zone.drag { border-color: var(--primary); background: #EEF2FF; color: var(--primary); transform: translateY(-1px); }
+.drop-zone .icon { font-size: 32px; margin-bottom: 12px; transition: transform 0.2s; }
+.drop-zone:hover .icon { transform: scale(1.1); }
+.drop-zone .hint { font-size: 14px; line-height: 1.6; }
+.drop-zone.jd-loaded { border-color: var(--success); background: #ECFDF5; color: #059669; }
+
+/* AI 匹配配置面板 */
+.ai-toggle-box { background: #FFFFFF; border: 1px solid var(--border-color); border-radius: 16px; padding: 20px 28px; margin-bottom: 24px; display: flex; flex-direction: column; gap: 16px; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
+.switch-label { display: inline-flex; align-items: center; gap: 10px; cursor: pointer; font-size: 15px; font-weight: 600; color: var(--text-main); user-select: none; }
+.switch-label input[type="checkbox"] { width: 20px; height: 20px; accent-color: var(--primary); cursor: pointer; }
+.ai-settings { background: #EFF6FF; border: 1px solid #BFDBFE; border-radius: 12px; padding: 20px; display: none; animation: slideDown 0.3s ease; }
+.ai-settings.show { display: block; }
+@keyframes slideDown { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+.api-inputs { display: grid; grid-template-columns: 1fr 1fr 2fr; gap: 16px; margin-bottom: 12px; }
+.api-inputs input { width: 100%; padding: 12px 16px; border: 1px solid #93C5FD; border-radius: 8px; font-size: 14px; outline: none; transition: 0.2s; background: #FFFFFF; }
+.api-inputs input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15); }
+.ai-hint { color: #3B82F6; font-size: 13px; display: flex; align-items: center; gap: 6px; }
+
+/* 按钮及表格样式 */
+.btn { background: var(--primary); color: #fff; border: none; padding: 16px 48px; border-radius: 12px; cursor: pointer; font-size: 16px; font-weight: 600; transition: all 0.2s; box-shadow: 0 4px 6px -1px rgba(79, 70, 229, 0.2); }
+.btn:hover { background: var(--primary-hover); transform: translateY(-2px); box-shadow: 0 6px 8px -1px rgba(79, 70, 229, 0.3); }
+.btn-sm { background: #F1F5F9; color: var(--text-main); border: 1px solid var(--border-color); padding: 8px 16px; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 500; transition: all 0.2s; }
+.btn-sm:hover { background: #E2E8F0; color: var(--primary); }
+
+table { width: 100%; border-collapse: separate; border-spacing: 0; margin-top: 12px; }
+th { text-align: left; padding: 16px; font-size: 14px; font-weight: 600; color: var(--text-muted); border-bottom: 2px solid var(--border-color); }
+td { padding: 18px 16px; border-bottom: 1px solid var(--border-color); font-size: 14px; vertical-align: middle; }
+tr:last-child td { border-bottom: none; }
+tr:hover td { background: #F8FAFC; }
+.score-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 8px; box-shadow: 0 0 0 2px rgba(255,255,255,0.8); }
+.score-dot.high { background: var(--success); } .score-dot.mid { background: var(--warning); } .score-dot.low { background: var(--danger); }
+.tag { display: inline-block; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 500; margin: 3px 2px; }
+.tag.match { background: #ECFDF5; color: #059669; border: 1px solid #A7F3D0; }
+.tag.missing { background: #F1F5F9; color: #64748B; border: 1px solid #E2E8F0; }
+.tag.ai { background: #EFF6FF; color: #2563EB; border: 1px solid #BFDBFE; font-weight: 600;}
+
+/* 详情折叠面板 */
+.detail-row { display: none; }
+.detail-row.show { display: table-row; }
+.detail-row td { background: #FAFAFA; padding: 24px; border-bottom: 1px solid var(--border-color); }
+
+/* 文件列表 */
+.file-list { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; }
+.file-chip { background: #F1F5F9; border: 1px solid var(--border-color); border-radius: 8px; padding: 8px 14px; font-size: 13px; display: flex; align-items: center; gap: 8px; color: var(--text-main); transition: all 0.2s; }
+.file-chip:hover { background: #E2E8F0; }
+.file-chip .remove { cursor: pointer; color: var(--text-muted); font-weight: bold; width: 20px; height: 20px; display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; transition: 0.2s; }
+.file-chip .remove:hover { color: var(--danger); background: #FEE2E2; }
+</style>
+</head>
+<body>
+
+<header class="header">
+  <div class="header-left">
+    <h2>📋 简历批量匹配</h2>
+    <div class="badge">✨ Powered by DeepSeek & Gemini 联袂开发</div>
+  </div>
+  <div class="header-right">
+    <span>🔒 纯本地解析，隐私安全保障</span>
+    <span class="author">beiyu-notes · 江夜 & 北屿</span>
+  </div>
+</header>
+
+<div class="main">
+  <div class="grid-2">
+    <div class="card" style="margin-bottom:0">
+      <h3>📝 职位描述 (JD) <span style="color:var(--text-muted); font-size:13px; font-weight:normal; margin-left:8px;">拖入文件或粘贴文本</span></h3>
+      <div class="drop-zone" id="jdDrop" onclick="document.getElementById('jdFile').click()">
+        <div class="icon" id="jdIcon">📄</div>
+        <div class="hint" id="jdHint">拖入 JD 文件至此（PDF / Word / TXT）<br>或点击选择文件</div>
+      </div>
+      <input type="file" id="jdFile" accept=".pdf,.docx,.doc,.txt" style="display:none" onchange="loadJDFile(this.files[0])">
+      <textarea id="jd" placeholder="也可直接在此处粘贴 JD 文本内容..."></textarea>
+    </div>
+
+    <div class="card" style="margin-bottom:0">
+      <h3>👥 候选人简历 <span style="color:var(--text-muted); font-size:13px; font-weight:normal; margin-left:8px;">支持批量拖拽</span></h3>
+      <div class="drop-zone" id="resumeDrop" onclick="document.getElementById('fileInput').click()" style="height: calc(100% - 44px);">
+        <div class="icon" id="resumeIcon">📂</div>
+        <div class="hint" id="resumeHint">将多份简历文件拖拽至此<br>支持 .pdf / .docx / .txt 格式</div>
+      </div>
+      <input type="file" id="fileInput" multiple accept=".pdf,.docx,.doc,.txt" style="display:none" onchange="handleResumeFiles(this.files)">
+      <div class="file-list" id="fileList"></div>
+    </div>
+  </div>
+
+  <div class="ai-toggle-box">
+    <label class="switch-label">
+      <input type="checkbox" id="useAICheckbox" onchange="toggleAI()">
+      🤖 启用 AI 大模型深度匹配（OpenAI 格式 API）
+    </label>
+    <div class="ai-settings" id="aiSettings">
+      <div class="api-inputs">
+        <input type="text" id="aiBaseUrl" value="https://api.deepseek.com/v1" placeholder="Base URL (默认为 DeepSeek)">
+        <input type="text" id="aiModel" value="deepseek-v4-pro" placeholder="Model Name (如 deepseek-v4-pro)">
+        <input type="password" id="aiKey" placeholder="输入 API Key (sk-...)">
+      </div>
+      <div class="ai-hint">
+        <span>💡 <b>提示：</b>使用 API 调用大模型需要向 AI 公司付费。如果嫌注册填 Key 太麻烦，可以撒娇找姐姐提供“爱心经济支持” 💖</span>
+      </div>
+    </div>
+  </div>
+
+  <div style="text-align:center; margin: 32px 0;">
+    <button class="btn" onclick="batchAnalyze()">
+      ✨ 开始匹配 (<span id="resumeCount">0</span> 份)
+    </button>
+  </div>
+
+  <div class="card" id="resultCard" style="display:none">
+    <h3>📊 匹配结果排行</h3>
+    <table>
+      <thead>
+        <tr>
+          <th width="8%">排名</th>
+          <th width="20%">候选人</th>
+          <th width="20%">匹配度</th>
+          <th width="40%">文件名称</th>
+          <th width="12%">操作</th>
+        </tr>
+      </thead>
+      <tbody id="resultTable"></tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+// 基础逻辑及解析器加载
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+const files = [];
+
+// AI 设置面板开关
+function toggleAI() {
+  const isChecked = document.getElementById('useAICheckbox').checked;
+  const panel = document.getElementById('aiSettings');
+  panel.classList.toggle('show', isChecked);
+}
+
+// 修复过的文件解析逻辑 (增加异步延迟，防止浏览器假死)
+async function parseFile(file) {
+  if (file.name.endsWith('.pdf')) {
+    const buf = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+    const pages = [];
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i);
+      const content = await page.getTextContent();
+      pages.push(content.items.map(it => it.str).join(' '));
+    }
+    return pages.join('\n');
+  } else if (file.name.endsWith('.docx') || file.name.endsWith('.doc')) {
+    const buf = await file.arrayBuffer();
+    const result = await mammoth.extractRawText({ arrayBuffer: buf });
+    return result.value;
+  } else {
+    return await file.text();
+  }
+}
+
+// 加载 JD 并增加状态提示
+async function loadJDFile(file) {
+  if (!file) return;
+  const hint = document.getElementById('jdHint');
+  const icon = document.getElementById('jdIcon');
+  icon.textContent = '⏳';
+  hint.textContent = '正在解析 JD 文件...';
+  
+  // 强制浏览器渲染 Loading 状态
+  await new Promise(r => setTimeout(r, 50)); 
+  
+  try {
+    const text = await parseFile(file);
+    document.getElementById('jd').value = text.substring(0, 10000);
+    document.getElementById('jdDrop').classList.add('jd-loaded');
+    icon.textContent = '📄';
+    hint.textContent = '✅ 已加载：' + file.name;
+  } catch(e) {
+    alert('JD文件解析失败：' + file.name);
+    icon.textContent = '📄';
+    hint.textContent = '拖入 JD 文件至此或点击选择文件';
+  }
+}
+
+// 拖拽事件监听 (JD)
+document.getElementById('jdDrop').addEventListener('dragover', e => { e.preventDefault(); e.currentTarget.classList.add('drag'); });
+document.getElementById('jdDrop').addEventListener('dragleave', e => { e.currentTarget.classList.remove('drag'); });
+document.getElementById('jdDrop').addEventListener('drop', e => { e.preventDefault(); e.currentTarget.classList.remove('drag'); loadJDFile(e.dataTransfer.files[0]); });
+
+// 简历拖拽事件
+const resumeDrop = document.getElementById('resumeDrop');
+resumeDrop.addEventListener('dragover', e => { e.preventDefault(); resumeDrop.classList.add('drag'); });
+resumeDrop.addEventListener('dragleave', () => resumeDrop.classList.remove('drag'));
+resumeDrop.addEventListener('drop', e => { e.preventDefault(); resumeDrop.classList.remove('drag'); handleResumeFiles(e.dataTransfer.files); });
+
+// 加载简历并增加状态提示
+async function handleResumeFiles(fileList) {
+  const hint = document.getElementById('resumeHint');
+  const icon = document.getElementById('resumeIcon');
+  const originHint = hint.innerHTML;
+  
+  icon.textContent = '⏳';
+  hint.textContent = '正在努力解析简历文件，请稍候...';
+  await new Promise(r => setTimeout(r, 50)); 
+
+  for (const f of fileList) {
+    try {
+      const text = await parseFile(f);
+      const lines = text.split('\n').filter(l => l.trim());
+      const name = lines[0]?.replace(/[|｜\s\-:：—–].*$/, '').trim() || f.name.replace(/\.[^.]+$/, '');
+      files.push({ name: f.name, candidateName: name, text: text.substring(0, 8000), raw: text });
+    } catch(e) {
+      files.push({ name: f.name, candidateName: f.name, text: '【解析失败】', raw: '' });
+    }
+  }
+  
+  icon.textContent = '📂';
+  hint.innerHTML = originHint;
+  document.getElementById('fileInput').value = '';
+  updateFileList();
+}
+
+function updateFileList() {
+  document.getElementById('fileList').innerHTML = files.map((f, i) =>
+    `<div class="file-chip">📄 ${f.name} <span style="color:var(--text-muted)">(${f.candidateName})</span><span class="remove" onclick="removeFile(${i})">✕</span></div>`
+  ).join('');
+  document.getElementById('resumeCount').textContent = files.length;
+}
+function removeFile(i) { files.splice(i, 1); updateFileList(); }
+
+/* 
+=========================================
+🔥 关键词匹配：中文用 includes，英文用灵活正则
+   - 中文无 \b 边界 → includes() 精确匹配
+   - 英文短语（含空格/连字符）→ 支持 _ - 空格 三种分隔符
+   - 英文单词 → \b 边界匹配
+=========================================
+*/
+const AI_KEYWORDS = [
+  "AI", "人工智能", "agent", "智能体", "大模型", "LLM", "GPT", "Claude", "DeepSeek", "通义", "文心", "豆包", "Grok", "Gemini", "Copilot", "Codex", "Cursor", "OpenAI", "Anthropic",
+  "skill", "技能", "prompt", "提示词", "RAG", "检索增强", "function call", "工具调用", "tool use", "MCP", "plugin", "插件", "API", "微调", "fine tune", "fine-tuning", "embedding", "向量", "RLHF", "SFT", "对齐",
+  "agentic", "自主", "规划", "planning", "reasoning", "推理", "chain of thought", "思维链", "multi-agent", "多智能体", "orchestrate", "编排", "workflow", "工作流", "pipeline", "全链路", "端到端",
+  "策略", "strategy", "产品", "product", "用户", "user", "体验", "UX", "交互", "interaction", "设计", "design", "数据", "data", "分析", "analytics", "指标", "metric", "AB", "实验", "增长", "转化", "留存",
+  "Python", "Java", "TypeScript", "React", "Vue", "Node", "FastAPI", "Flask", "Docker", "K8s", "k8s", "云原生", "cloud", "Git", "Linux", "SQL", "MongoDB", "Redis",
+  "沟通", "协作", "团队", "项目管理", "需求", "owner", "ownership", "自驱", "迭代", "优化", "敏捷", "scrum", "跨部门", "跨团队", "落地", "上线"
+];
+
+function buildFlexibleRegex(kw) {
+  // 如果包含空格或连字符，做成灵活匹配：[ _-]?
+  if (/[\s\-]/.test(kw)) {
+    const separated = kw.toLowerCase().split(/[\s\-]+/);
+    const pattern = separated.map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('[\\s_\\-]?');
+    return new RegExp(pattern, 'i');
+  }
+  // 纯单词用 \b 边界
+  return new RegExp('\\b' + kw.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'i');
+}
+
+function extractKeywords(text) {
+  const found = [];
+  const seen = new Set();
+  const lowerText = text.toLowerCase();
+
+  for (const kw of AI_KEYWORDS) {
+    const lk = kw.toLowerCase();
+    if (seen.has(lk)) continue;
+
+    // 纯英文关键词（含连字符或空格）→ 灵活正则
+    if (/^[a-z0-9\-\s]+$/i.test(kw)) {
+      const regex = buildFlexibleRegex(kw);
+      if (regex.test(text)) {
+        found.push(kw);
+        seen.add(lk);
+      }
+    } else {
+      // 中文关键词 → includes()（中文无 \b 边界）
+      if (lowerText.includes(lk)) {
+        found.push(kw);
+        seen.add(lk);
+      }
+    }
+  }
+  return found;
+}
+
+/* 
+=========================================
+🔥 修复 2 & 新增：本地规则匹配 vs AI 深度匹配
+=========================================
+*/
+async function batchAnalyze() {
+  const jd = document.getElementById('jd').value.trim();
+  if (!jd) { alert('请先填写或拖入职位描述（JD）'); return; }
+  if (files.length === 0) { alert('请先拖入简历文件'); return; }
+
+  const useAI = document.getElementById('useAICheckbox').checked;
+
+  if (useAI) {
+    await analyzeWithAI(jd);
+  } else {
+    analyzeLocal(jd);
+  }
+}
+
+// 【本地正则匹配】
+function analyzeLocal(jd) {
+  const jdKw = extractKeywords(jd);
+  const results = files.map(f => {
+    const resumeKw = extractKeywords(f.text);
+    const jdSet = new Set(jdKw.map(k=>k.toLowerCase()));
+    const resumeSet = new Set(resumeKw.map(k=>k.toLowerCase()));
+    let matched = [], missing = [];
+
+    for (const kw of jdKw) {
+      const kwL = kw.toLowerCase();
+      let found = false;
+      for (const rk of resumeKw) {
+        const rkL = rk.toLowerCase();
+        if (kwL === rkL || kwL.includes(rkL) || rkL.includes(kwL)) { matched.push(kw); found = true; break; }
+      }
+      if (!found) missing.push(kw);
+    }
+    const total = jdKw.length || 1;
+    const overlap = [...jdSet].filter(k => resumeSet.has(k)).length;
+    const score = Math.min(100, Math.round((matched.length / total) * 70 + (overlap / Math.max(jdSet.size, 1)) * 30));
+    
+    return { name: f.candidateName, fileName: f.name, score, matched: [...new Set(matched)], missing: [...new Set(missing)], isAI: false };
+  });
+
+  results.sort((a, b) => b.score - a.score);
+  renderTable(results);
+}
+
+// 【AI 大模型匹配】
+async function analyzeWithAI(jd) {
+  const baseUrl = document.getElementById('aiBaseUrl').value.replace(/\/$/, '') + '/chat/completions';
+  const model = document.getElementById('aiModel').value;
+  const apiKey = document.getElementById('aiKey').value;
+
+  if (!apiKey) { alert('请输入 API Key'); return; }
+
+  // 显示全局加载状态
+  document.getElementById('resultCard').style.display = 'block';
+  document.getElementById('resultTable').innerHTML = `
+    <tr>
+      <td colspan="5" style="text-align:center; padding: 60px 20px;">
+        <div style="font-size:32px; animation: spin 2s linear infinite; display:inline-block;">⏳</div>
+        <div style="margin-top:20px; font-size:16px; font-weight:600; color:var(--primary);">🤖 AI 正在疯狂阅卷中...</div>
+        <div style="margin-top:8px; color:var(--text-muted); font-size:13px;">这可能需要一点时间，先喝口水吧~</div>
+      </td>
+    </tr>
+  `;
+
+  const promises = files.map(async (f) => {
+    try {
+      const res = await fetch(baseUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+        body: JSON.stringify({
+          model: model,
+          response_format: { type: "json_object" }, // 强制要求 JSON 对象
+          messages: [
+            {
+              role: "system",
+              content: `你是一个专业的HR技术面试官。请阅读JD和候选人的简历，并进行匹配度评分（0-100）。
+请严格且只输出以下JSON格式（不要输出Markdown包裹框）：
+{
+  "score": 85,
+  "matched": ["Python", "微服务架构"],
+  "missing": ["Docker经验"],
+  "reason": "该候选人有很强的后端基础，但缺乏容器化部署的实战经验。"
+}`
+            },
+            {
+              role: "user",
+              content: `【JD 职位要求】:\n${jd.substring(0, 3000)}\n\n【候选人简历内容】:\n${f.text.substring(0, 4000)}`
+            }
+          ],
+          temperature: 0.1
+        })
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error.message);
+      
+      let content = data.choices[0].message.content.trim();
+      // 容错处理：清理可能带有 markdown 代码块标记的响应
+      content = content.replace(/^```(?:json)?/i, '').replace(/```$/i, '').trim();
+      const result = JSON.parse(content);
+      
+      return {
+        name: f.candidateName, fileName: f.name,
+        score: result.score || 0,
+        matched: result.matched || [],
+        missing: result.missing || [],
+        reason: result.reason || "无评价",
+        isAI: true
+      };
+    } catch(e) {
+      console.error("AI 匹配异常:", f.name, e);
+      return { name: f.candidateName, fileName: f.name, score: 0, matched: [], missing: [], reason: `API 调用失败: ${e.message}`, isAI: true };
+    }
+  });
+
+  const results = await Promise.all(promises);
+  results.sort((a, b) => b.score - a.score);
+  renderTable(results);
+}
+
+// 渲染结果表格
+function renderTable(results) {
+  let html = '';
+  results.forEach((r, idx) => {
+    const dotClass = r.score >= 70 ? 'high' : r.score >= 40 ? 'mid' : 'low';
+    html += `<tr>
+      <td><span style="color:var(--text-muted); font-weight:700; font-size:18px;">${idx+1}</span></td>
+      <td><a href="javascript:void(0)" onclick="toggleDetail('d${idx}')" style="color:var(--primary);text-decoration:none;font-weight:600">${r.name}</a></td>
+      <td><span class="score-dot ${dotClass}"></span><strong style="color:var(--text-main);font-size:16px;">${r.score}%</strong></td>
+      <td style="color:var(--text-muted);font-size:13px">${r.fileName}</td>
+      <td><button class="btn-sm" onclick="toggleDetail('d${idx}')">查看详情</button></td>
+    </tr>
+    <tr class="detail-row" id="d${idx}">
+      <td colspan="5">
+        ${r.isAI ? `<div style="margin-bottom:16px; padding:12px 16px; background:#EFF6FF; border-radius:8px; border-left:4px solid var(--primary);"><strong style="color:#1E40AF;">🤖 AI 评价：</strong><span style="color:#1E3A8A; font-size:14px; line-height:1.6; margin-left:8px;">${r.reason}</span></div>` : ''}
+        <div style="margin:8px 0"><strong style="color:var(--success)">✅ 命中/具备技能 (${r.matched.length})：</strong><br>${r.matched.length ? r.matched.slice(0,15).map(k=>`<span class="tag match">${k}</span>`).join(' ') : '<span style="color:#94A3B8;font-size:13px;">（未识别出匹配项）</span>'}</div>
+        <div style="margin:16px 0 8px 0"><strong style="color:var(--text-muted)">❌ JD提及但未体现 (${r.missing.length})：</strong><br>${r.missing.length ? r.missing.slice(0,10).map(k=>`<span class="tag missing">${k}</span>`).join(' ') + (r.missing.length>10?' <span style="font-size:12px;color:#94A3B8;">...等项</span>':'') : '<span style="color:#94A3B8;font-size:13px;">（完美覆盖！）</span>'}</div>
+        ${!r.isAI ? `<div style="color:#94A3B8;font-size:12px;margin-top:16px;border-top:1px dashed #E2E8F0;padding-top:12px;">💡 提示：当前为纯本地规则匹配，对同义词包容度较低。推荐开启「AI 深度匹配」获取更智能的解读。</div>` : ''}
+      </td>
+    </tr>`;
+  });
+
+  document.getElementById('resultTable').innerHTML = html;
+  document.getElementById('resultCard').style.display = 'block';
+}
+
+function toggleDetail(id) {
+  const row = document.getElementById(id);
+  if (row) row.classList.toggle('show');
+}
+
+document.getElementById('jd').addEventListener('input', function() {
+  if (this.value.trim()) {
+    document.getElementById('jdDrop').classList.add('jd-loaded');
+    document.getElementById('jdHint').textContent = '✅ 已监听到手动输入/粘贴的文本';
+  }
+});
+</script>
+</body>
+</html>
